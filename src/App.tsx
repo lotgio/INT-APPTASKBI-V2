@@ -105,7 +105,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="ui-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#5b6370" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#6B625A" }}>
           <div className="ui-brand-mark">BI</div>
           Caricamento dati…
         </div>

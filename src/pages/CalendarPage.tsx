@@ -39,7 +39,7 @@ interface Props {
 
 const STATUS_LABELS: Record<TaskStatus, string> = { todo: "Da fare", "in-progress": "In corso", done: "Completato" };
 const WEEKDAYS_SHORT = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
-const LEVEL_COLOR = { over: "#C2410C", high: "#B45309", ok: "#2457D6", low: "#4B5563" } as const;
+const LEVEL_COLOR = { over: "#B4441F", high: "#A1600F", ok: "#2F5D8A", low: "#5E554E" } as const;
 
 function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -406,7 +406,7 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
             <span className="ui-kpi-sub">{totals.target > 0 ? `target ${fmtEuro(totals.target)}` : "nessun target impostato"}</span>
           </div>
           <div className="ui-track">
-            <div className="ui-fill" style={{ width: `${totals.target > 0 ? Math.min((totals.value / totals.target) * 100, 100) : 0}%`, background: "#0F766E" }} />
+            <div className="ui-fill" style={{ width: `${totals.target > 0 ? Math.min((totals.value / totals.target) * 100, 100) : 0}%`, background: "#5B7B5E" }} />
           </div>
         </div>
         <div className="ui-card ui-card-pad ui-kpi">
@@ -460,8 +460,8 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
               <>
                 <div className="cal-scroll">
                   <div style={{ minWidth: 200 + dayKeys.length * 28 }}>
-                    <div className="tl-grid" style={{ gridTemplateColumns: gridCols, background: "#FAFBFC", borderBottom: "1px solid var(--line-soft)" }}>
-                      <div className="tl-namecol" style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "#FAFBFC" }}>
+                    <div className="tl-grid" style={{ gridTemplateColumns: gridCols, background: "#FAF8F5", borderBottom: "1px solid var(--line-soft)" }}>
+                      <div className="tl-namecol" style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "#FAF8F5" }}>
                         Risorsa · carico mese
                       </div>
                       {weeks.map((w) => (
@@ -795,7 +795,7 @@ function SelectedPanel({
           <Field
             label="Carico giornaliero"
             value={scheduled ? `${fmtNum(daily)} h/gg${daily > HOURS_PER_DAY ? " · oltre 8h" : ""}` : "—"}
-            color={daily > HOURS_PER_DAY ? "#C2410C" : undefined}
+            color={daily > HOURS_PER_DAY ? "#B4441F" : undefined}
           />
         )}
       </div>

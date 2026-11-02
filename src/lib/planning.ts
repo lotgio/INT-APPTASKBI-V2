@@ -195,14 +195,14 @@ export function initials(name: string): string {
 }
 
 const CLIENT_PALETTE = [
-  { bg: "#DCE6FB", fg: "#1E3A8A" },
-  { bg: "#D3EFEA", fg: "#0D5650" },
-  { bg: "#FAE8C8", fg: "#7A4106" },
-  { bg: "#E8E0FA", fg: "#4C2596" },
-  { bg: "#E3E7ED", fg: "#2B3645" },
-  { bg: "#FBDDE6", fg: "#8A1C3F" },
-  { bg: "#DDF0D2", fg: "#2F5A12" },
-  { bg: "#D6ECF8", fg: "#0B4F72" }
+  { bg: "#DCE6F0", fg: "#22466B" },
+  { bg: "#DCE8D8", fg: "#3F5A42" },
+  { bg: "#F2E2D3", fg: "#7A3E1C" },
+  { bg: "#E6DEEA", fg: "#5A3D66" },
+  { bg: "#E7E2DC", fg: "#4A423C" },
+  { bg: "#F3DCDC", fg: "#7D2E35" },
+  { bg: "#EDE5C8", fg: "#6A5418" },
+  { bg: "#D8E8EA", fg: "#2D5F66" }
 ];
 export function clientColor(client: string) {
   let hash = 0;
