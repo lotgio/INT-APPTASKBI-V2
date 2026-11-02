@@ -212,4 +212,4 @@ export function clientColor(client: string) {
 }
 
 export const fmtNum = (n: number, digits = 1) => n.toLocaleString("it-IT", { maximumFractionDigits: digits });
-export const fmtEuro = (n: number) => "€ " + Math.round(n).toLocaleString("it-IT");
+export const fmtEuro = (n: number) => "€ " + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");

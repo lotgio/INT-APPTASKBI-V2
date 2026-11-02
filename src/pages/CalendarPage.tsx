@@ -156,7 +156,7 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
       const s = workingDays[w.start];
       const e = workingDays[w.start + w.len - 1];
       const range = s.getDate() === e.getDate() ? `${s.getDate()}` : `${s.getDate()}–${e.getDate()}`;
-      return { ...w, label: w.len >= 3 ? `Sett. ${w.wk} · ${range}` : `S${w.wk}` };
+      return { ...w, short: w.len < 3, label: w.len >= 3 ? `Sett. ${w.wk} · ${range}` : `S${w.wk}` };
     });
   }, [workingDays]);
   const weekStartIdx = useMemo(() => new Set(weeks.map((w) => w.start)), [weeks]);
@@ -465,7 +465,7 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
                         Risorsa · carico mese
                       </div>
                       {weeks.map((w) => (
-                        <div key={w.start} className="tl-week" style={{ gridColumn: `${w.start + 2} / span ${w.len}` }}>{w.label}</div>
+                        <div key={w.start} className={`tl-week${w.short ? " short" : ""}`} title={`Settimana ${w.wk}`} style={{ gridColumn: `${w.start + 2} / span ${w.len}` }}>{w.label}</div>
                       ))}
                     </div>
                     <div className="tl-grid" style={{ gridTemplateColumns: gridCols, borderBottom: "1px solid var(--line)" }}>

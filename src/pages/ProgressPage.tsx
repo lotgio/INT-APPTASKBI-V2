@@ -130,11 +130,11 @@ function Metrics({ sold, logged, enable, invoiced, small }: { sold: number; logg
 function Remaining({ sold, logged, sub, small }: { sold: number; logged: number; sub?: string; small?: boolean }) {
   const rem = sold - logged;
   return (
-    <div className="pg-cell ui-num" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+    <div className="pg-cell right ui-num">
       <span style={{ fontSize: small ? 13 : 14, fontWeight: 600, color: rem < 0 ? "#C2410C" : "var(--ink)" }}>
         {rem < 0 ? "−" : ""}{fmtNum(Math.abs(rem))} h
       </span>
-      <span style={{ fontSize: small ? 11.5 : 12, color: "var(--muted)" }}>{sub ?? (rem >= 0 ? `${fmtNum(rem / HOURS_PER_DAY)} gg` : "oltre il venduto")}</span>
+      <span style={{ fontSize: small ? 11.5 : 12, color: "var(--muted)" }}>{sub ?? (rem >= 0 ? `${fmtNum(rem / HOURS_PER_DAY)} gg` : "sforato")}</span>
     </div>
   );
 }
@@ -520,7 +520,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
       )}
       {notice && <div className="ui-alert success" role="status">{notice}</div>}
 
-      <section className="ui-kpis" aria-label="Totali" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+      <section className="ui-kpis five" aria-label="Totali">
         {kpis.map((k) => (
           <div key={k.label} className="ui-card ui-card-pad ui-kpi">
             <span className="ui-kpi-label">{k.label}</span>
@@ -558,19 +558,6 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
             </span>
             Nascondi commesse fatturate
           </button>
-          <div className="ui-row" style={{ marginLeft: "auto", gap: 6 }}>
-            <label className="ui-row" style={{ gap: 6, fontSize: 13, color: "var(--muted)" }}>
-              Ordina
-              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
-                style={{ height: 40, border: "1px solid #dadfe6", borderRadius: 9, padding: "0 8px", background: "#fff", fontSize: 13.5, color: "var(--ink)" }}>
-                <option value="job">Commessa (recenti)</option>
-                <option value="progress">Avanzamento più alto</option>
-                <option value="remaining">Residuo più basso</option>
-              </select>
-            </label>
-            <button className="ui-btn" onClick={() => setExpanded(Object.fromEntries(aggregates.map((a) => [a.jobNo, true])))}>Espandi tutte</button>
-            <button className="ui-btn" onClick={() => setExpanded({})}>Chiudi tutte</button>
-          </div>
         </div>
         {scope === "all" && availableResources.length > 0 && (
           <div className="ui-row" style={{ gap: 8 }}>
@@ -617,7 +604,19 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
       <section className="ui-card" aria-label="Tabella avanzamento" style={{ overflow: "hidden" }}>
         <div className="ui-card-head">
           <h2 className="ui-h2">{loading ? "Caricamento commesse…" : `${aggregates.length} commesse · ${visibleLinesCount} righe`}</h2>
-          <span className="ui-muted" style={{ fontSize: 12.5 }}>Avanzamento = ore loggate su vendute · fatturazione rispetto al venduto</span>
+          <div className="ui-row" style={{ gap: 6 }}>
+            <label style={{ fontSize: 13, color: "var(--muted)" }}>
+              Ordina
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+                style={{ height: 32, border: "1px solid #dadfe6", borderRadius: 8, padding: "0 8px", background: "#fff", fontSize: 13, color: "var(--ink)" }}>
+                <option value="job">Commessa (recenti)</option>
+                <option value="progress">Avanzamento più alto</option>
+                <option value="remaining">Residuo più basso</option>
+              </select>
+            </label>
+            <button className="ui-btn sm" onClick={() => setExpanded(Object.fromEntries(aggregates.map((a) => [a.jobNo, true])))}>Espandi tutte</button>
+            <button className="ui-btn sm" onClick={() => setExpanded({})}>Chiudi tutte</button>
+          </div>
         </div>
         <div className="cal-scroll">
           <div style={{ minWidth: 1060 }}>
@@ -745,6 +744,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="cal-swatch" style={{ background: "#A9BEF0", height: 6 }} />Enable invoice</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#FDE7DA", color: "#9A3412", height: 20 }}>Sforata</span>loggato oltre il venduto</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#FBEFD5", color: "#7A4106", height: 20 }}>In chiusura</span>oltre il 90%</span>
+          <span className="ui-muted" style={{ marginLeft: "auto" }}>Avanzamento = ore loggate su vendute · fatturazione rispetto al venduto</span>
         </div>
       </section>
     </div>
