@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test Jobs Data</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .job { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .real-data { background: #d4edda; }
+        .mock-data { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Test Caricamento Jobs</h1>
+    <div id="status">Caricamento...</div>
+    <div id="jobs"></div>
+
+    <script>
+        async function loadJobs() {
+            const statusDiv = document.getElementById('status');
+            const jobsDiv = document.getElementById('jobs');
+            
+            try {
+                statusDiv.textContent = '📡 Fetching /jobs.json...';
+                const response = await fetch('/jobs.json');
+                statusDiv.textContent = `📡 Response: ${response.status} ${response.statusText}`;
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const jobs = await response.json();
+                statusDiv.innerHTML = `✅ <strong>Caricati ${jobs.length} jobs!</strong>`;
+                
+                // Mostra i primi 3 job
+                jobs.slice(0, 3).forEach((job, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'job real-data';
+                    div.innerHTML = `
+                        <h3>Job ${idx + 1}</h3>
+                        <p><strong>JobNo:</strong> ${job.JobNo || 'N/A'}</p>
+                        <p><strong>Customer Name:</strong> ${job['Customer Name'] || 'N/A'}</p>
+                        <p><strong>Ore Loggate:</strong> ${job['Ore Loggate'] || 'N/A'}</p>
+                        <p><strong>Unit Price:</strong> ${job['Unit Price'] || 'N/A'}</p>
+                        <details>
+                            <summary>Raw data</summary>
+                            <pre>${JSON.stringify(job, null, 2)}</pre>
+                        </details>
+                    `;
+                    jobsDiv.appendChild(div);
+                });
+                
+                // Verifica se sono dati mock
+                if (jobs[0] && jobs[0].JobNo === 'JOB001') {
+                    statusDiv.innerHTML += '<br>⚠️ <strong>ATTENZIONE: Questi sembrano DATI MOCK!</strong>';
+                } else if (jobs[0] && jobs[0].JobNo.startsWith('CO')) {
+                    statusDiv.innerHTML += '<br>✅ <strong>Confermato: Questi sono DATI REALI da Azure!</strong>';
+                }
+                
+            } catch (err) {
+                statusDiv.innerHTML = `❌ <strong>Errore:</strong> ${err.message}`;
+                console.error('Errore caricamento:', err);
+            }
+        }
+        
+        loadJobs();
+    </script>
+</body>
+</html>

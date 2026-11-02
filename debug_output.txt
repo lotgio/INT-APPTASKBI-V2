@@ -1,0 +1,23 @@
+﻿
+=== TEST LIBRERIE ===
+
+Ô£à pandas (3.0.0)
+Ô£à azure.storage.blob
+Ô£à pyarrow (23.0.0)
+
+=== TEST CONNESSIONE AZURE DIRETTA ===
+
+­ƒôí Connessione a Azure...
+­ƒôÑ Download parquet...
+­ƒôû Reading parquet...
+Ô£à Azure connessione OK - 82289 righe, 26 colonne
+Ô£à CO26000750 trovato in Azure!
+
+=== TEST ENDPOINT /api/jobs ===
+
+­ƒôí GET http://localhost:8000/api/jobs?v=debug
+ÔØî Impossibile connettere a localhost:8000
+   Il server Flask ├¿ in esecuzione?
+
+========================================
+

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Export Local Data</title>
+  <style>
+    body { font-family: system-ui; padding: 40px; max-width: 800px; margin: 0 auto; }
+    button { padding: 12px 24px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+    pre { background: #f5f5f5; padding: 20px; border-radius: 8px; overflow: auto; }
+    .success { color: green; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Esporta dati locali</h1>
+  <p>Questa pagina estrae i dati da localStorage per importarli nel backend.</p>
+  
+  <button onclick="exportData()">Esporta dati</button>
+  <button onclick="copyToClipboard()">Copia JSON</button>
+  
+  <div id="result"></div>
+  <pre id="output" style="display:none;"></pre>
+
+  <script>
+    let exportedData = null;
+
+    function exportData() {
+      const members = localStorage.getItem('apptaskbi_members');
+      const tasks = localStorage.getItem('apptaskbi_tasks');
+      
+      exportedData = {
+        members: members ? JSON.parse(members) : [],
+        tasks: tasks ? JSON.parse(tasks) : []
+      };
+      
+      const output = document.getElementById('output');
+      const result = document.getElementById('result');
+      
+      output.textContent = JSON.stringify(exportedData, null, 2);
+      output.style.display = 'block';
+      
+      result.innerHTML = `
+        <p class="success">✅ Dati esportati:</p>
+        <ul>
+          <li>${exportedData.members.length} membri</li>
+          <li>${exportedData.tasks.length} task</li>
+        </ul>
+      `;
+    }
+
+    function copyToClipboard() {
+      if (!exportedData) {
+        alert('Prima esporta i dati!');
+        return;
+      }
+      
+      const text = JSON.stringify(exportedData, null, 2);
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✅ JSON copiato negli appunti!');
+      }).catch(err => {
+        alert('Errore copia: ' + err);
+      });
+    }
+  </script>
+</body>
+</html>

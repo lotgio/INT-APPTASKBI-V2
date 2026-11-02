@@ -1,0 +1,37 @@
+name: Deploy v2 (GitHub Pages)
+
+# Pubblica la v2 a ogni push su main. I dati commesse NON vengono sincronizzati qui:
+# la v2 li legge dal sito attuale (lotgio/INT-APPTASKBI), che ha il suo workflow di sync.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci || npm install
+      - name: Build
+        env:
+          VITE_BASE: /INT-APPTASKBI-V2/
+          VITE_JOBS_URL: https://lotgio.github.io/INT-APPTASKBI/jobs.json
+          VITE_RESOURCES_URL: https://lotgio.github.io/INT-APPTASKBI/resources.json
+          VITE_ALLOW_STATIC_JOBS_FALLBACK: "true"
+          VITE_SUPABASE_URL: https://teadzgcurjjdbuoohakr.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlYWR6Z2N1cmpqZGJ1b29oYWtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTk4MDgsImV4cCI6MjA4ODAzNTgwOH0.PqyePbd6FISVUmAi4If41BCM_QpTpCr-7HkhENnE7IE
+        run: |
+          npm run build
+          rm -f dist/jobs.json dist/resources.json
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist

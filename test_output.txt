@@ -1,0 +1,8 @@
+﻿==================================================
+
+[INFO] Inizio test endpoint /api/jobs
+[INFO] URL: http://localhost:8000/api/jobs
+[TEST] Invio richiesta...
+[ERROR] Timeout: HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=30)
+==================================================
+

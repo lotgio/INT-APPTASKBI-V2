@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Giorgia",
+    "id": "d4f561e7-3844-4898-9a95-8b1ef2c5ddd4",
+    "annualTarget": 80000
+  },
+  {
+    "name": "Anna",
+    "annualTarget": 80000,
+    "id": "65b3dc46-f829-4b7e-b275-1ba95fafe741"
+  },
+  {
+    "name": "Matteo",
+    "annualTarget": 55000,
+    "id": "8da06fc6-89ac-4b72-ac9c-504f5a6dffcf"
+  },
+  {
+    "name": "Alberto",
+    "annualTarget": 55000,
+    "id": "c4e9af42-91fd-4371-af3a-19ff54d51e2a"
+  }
+]

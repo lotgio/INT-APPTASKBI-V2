@@ -1,0 +1,20 @@
+node_modules
+.dist
+*.log
+.env
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+jobs_data.json
+jobs_temp.json
+temp_output.json
+test_api_response.json
+deploy.zip
+dist/
+
+# NON ignorare questi per Azure deploy
+# data/
+
+# La v2 legge commesse e risorse dal sito attuale
+public/jobs.json
