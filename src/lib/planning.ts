@@ -98,7 +98,23 @@ export function isScheduled(task: Task): task is Task & { startDate: string; end
   return !!task.startDate && !!task.endDate;
 }
 
-/** Ore del task che ricadono nell'intervallo, ripartite in proporzione ai giorni di calendario (come l'originale). */
+/** Giorni lavorativi (lun-ven, escluse festività) tra due date incluse. */
+export function countWorkingDaysBetween(start: Date, end: Date): number {
+  let n = 0;
+  const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  for (let guard = 0; d <= last && guard < 3660; guard++) {
+    if (isWorkingDay(d)) n++;
+    d.setDate(d.getDate() + 1);
+  }
+  return n;
+}
+
+/**
+ * Ore del task che ricadono nell'intervallo, ripartite sui giorni lavorativi del task
+ * (un task da 40 h dal venerdì al giovedì vale 8 h al giorno, non 40/7).
+ * Se il task cade solo su giorni non lavorativi si ripartisce sui giorni di calendario.
+ */
 export function getTaskHoursInRange(task: Task, rangeStart: Date, rangeEnd: Date): number {
   if (!isScheduled(task)) return 0;
   const ts = parseDate(task.startDate);
@@ -106,6 +122,8 @@ export function getTaskHoursInRange(task: Task, rangeStart: Date, rangeEnd: Date
   if (te < rangeStart || ts > rangeEnd) return 0;
   const os = new Date(Math.max(ts.getTime(), rangeStart.getTime()));
   const oe = new Date(Math.min(te.getTime(), rangeEnd.getTime()));
+  const totalWd = countWorkingDaysBetween(ts, te);
+  if (totalWd > 0) return (task.hours * countWorkingDaysBetween(os, oe)) / totalWd;
   const total = Math.round((te.getTime() - ts.getTime()) / 86400000) + 1;
   const overlap = Math.round((oe.getTime() - os.getTime()) / 86400000) + 1;
   if (total <= 0 || overlap <= 0) return 0;
@@ -114,6 +132,8 @@ export function getTaskHoursInRange(task: Task, rangeStart: Date, rangeEnd: Date
 
 export function getHoursPerDay(task: Task): number {
   if (!isScheduled(task)) return task.hours;
+  const wd = countWorkingDaysBetween(parseDate(task.startDate), parseDate(task.endDate));
+  if (wd > 0) return task.hours / wd;
   const days = diffDays(task.startDate, task.endDate) + 1;
   return days > 0 ? task.hours / days : task.hours;
 }
@@ -195,14 +215,14 @@ export function initials(name: string): string {
 }
 
 const CLIENT_PALETTE = [
-  { bg: "#DCE6F0", fg: "#22466B" },
-  { bg: "#DCE8D8", fg: "#3F5A42" },
-  { bg: "#F2E2D3", fg: "#7A3E1C" },
-  { bg: "#E6DEEA", fg: "#5A3D66" },
-  { bg: "#E7E2DC", fg: "#4A423C" },
-  { bg: "#F3DCDC", fg: "#7D2E35" },
-  { bg: "#EDE5C8", fg: "#6A5418" },
-  { bg: "#D8E8EA", fg: "#2D5F66" }
+  { bg: "#DCE7F8", fg: "#003DA6" },
+  { bg: "#D7F0E5", fg: "#0B6146" },
+  { bg: "#FDE3D6", fg: "#A8360B" },
+  { bg: "#E8E1FA", fg: "#4B2DA0" },
+  { bg: "#E2E8F0", fg: "#2E4256" },
+  { bg: "#FADDE8", fg: "#9B1F4E" },
+  { bg: "#FBEFC9", fg: "#7A5300" },
+  { bg: "#D3EEF5", fg: "#0B5A70" }
 ];
 export function clientColor(client: string) {
   let hash = 0;

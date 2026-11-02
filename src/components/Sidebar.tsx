@@ -4,7 +4,6 @@ export type Route =
   | "calendario"
   | "avanzamento"
   | "todo"
-  | "commesse"
   | "statistiche"
   | "team"
   | "database"
@@ -18,8 +17,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
     items: [
       { route: "calendario", label: "Calendario", icon: "calendar" },
       { route: "avanzamento", label: "Avanzamento", icon: "progress" },
-      { route: "todo", label: "Todo", icon: "list" },
-      { route: "commesse", label: "Commesse aperte", icon: "trend" }
+      { route: "todo", label: "Todo", icon: "list" }
     ]
   },
   {

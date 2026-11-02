@@ -109,14 +109,14 @@ const formatLastUpdate = (v: string | null) => {
 };
 
 function statusOf(sold: number, logged: number) {
-  if (logged <= 0) return { label: "Da avviare", fg: "#4A423C", bg: "#EFEAE4" };
-  if (sold <= 0) return { label: "Senza venduto", fg: "#8C2F14", bg: "#F6DCD0" };
+  if (logged <= 0) return { label: "Da avviare", fg: "#3D4B57", bg: "#EBF0F6" };
+  if (sold <= 0) return { label: "Senza venduto", fg: "#9E2408", bg: "#FCE1D6" };
   const r = logged / sold;
-  if (r > 1) return { label: "Sforata", fg: "#8C2F14", bg: "#F6DCD0" };
-  if (r >= 0.9) return { label: "In chiusura", fg: "#6E4210", bg: "#F5E7CF" };
-  return { label: "In linea", fg: "#22466B", bg: "#DCE6F0" };
+  if (r > 1) return { label: "Sforata", fg: "#9E2408", bg: "#FCE1D6" };
+  if (r >= 0.9) return { label: "In chiusura", fg: "#6E3D00", bg: "#FDEFD2" };
+  return { label: "In linea", fg: "#002F80", bg: "#DCE7F8" };
 }
-const progressColor = (p: number) => (p > 100 ? "#B4441F" : p >= 90 ? "#A1600F" : "#2F5D8A");
+const progressColor = (p: number) => (p > 100 ? "#C02B0A" : p >= 90 ? "#A85A00" : "#003DA6");
 
 function Metrics({ sold, logged, enable, invoiced, small }: { sold: number; logged: number; enable: number; invoiced: number; small?: boolean }) {
   const p = pct(logged, sold);
@@ -137,8 +137,8 @@ function Metrics({ sold, logged, enable, invoiced, small }: { sold: number; logg
           {fmtNum(invoiced, 0)} fatt. · {fmtNum(enable, 0)} enable
         </span>
         <div className={`ui-track${small ? " thin" : ""}`} title={`Enable ${fmtNum(pct(enable, sold))}% · Fatturate ${fmtNum(pct(invoiced, sold))}% del venduto`}>
-          <div className="ui-fill" style={{ width: `${Math.min(pct(enable, sold), 100)}%`, background: "#A9BFD6" }} />
-          <div className="ui-fill" style={{ width: `${Math.min(pct(invoiced, sold), 100)}%`, background: "#22466B" }} />
+          <div className="ui-fill" style={{ width: `${Math.min(pct(enable, sold), 100)}%`, background: "#9DB8E6" }} />
+          <div className="ui-fill" style={{ width: `${Math.min(pct(invoiced, sold), 100)}%`, background: "#002F80" }} />
         </div>
       </div>
     </>
@@ -149,7 +149,7 @@ function Remaining({ sold, logged, sub, small }: { sold: number; logged: number;
   const rem = sold - logged;
   return (
     <div className="pg-cell right ui-num">
-      <span style={{ fontSize: small ? 13 : 14, fontWeight: 600, color: rem < 0 ? "#B4441F" : "var(--ink)" }}>
+      <span style={{ fontSize: small ? 13 : 14, fontWeight: 600, color: rem < 0 ? "#C02B0A" : "var(--ink)" }}>
         {rem < 0 ? "−" : ""}{fmtNum(Math.abs(rem))} h
       </span>
       <span style={{ fontSize: small ? 11.5 : 12, color: "var(--muted)" }}>{sub ?? (rem >= 0 ? `${fmtNum(rem / HOURS_PER_DAY)} gg` : "sforato")}</span>
@@ -556,11 +556,11 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
   });
 
   const kpis = [
-    { label: "Ore vendute", value: totals.sold, p: 100, color: "#D3C9BE", sub: `${aggregates.length} commesse · ${visibleLinesCount} righe` },
-    { label: "Ore loggate", value: totals.logged, p: pct(totals.logged, totals.sold), color: "#2F5D8A", sub: `${fmtNum(pct(totals.logged, totals.sold), 0)}% del venduto` },
-    { label: "Enable invoice", value: totals.enable, p: pct(totals.enable, totals.sold), color: "#A9BFD6", sub: `${fmtNum(pct(totals.enable, totals.sold), 0)}% del venduto` },
-    { label: "Fatturate", value: totals.invoiced, p: pct(totals.invoiced, totals.sold), color: "#22466B", sub: `${fmtNum(pct(totals.invoiced, totals.sold), 0)}% del venduto` },
-    { label: "Residuo", value: totals.remaining, p: pct(Math.max(totals.remaining, 0), totals.sold), color: "#5B7B5E", sub: `${fmtNum(totals.remaining / HOURS_PER_DAY)} giornate` }
+    { label: "Ore vendute", value: totals.sold, p: 100, color: "#C9D5E3", sub: `${aggregates.length} commesse · ${visibleLinesCount} righe` },
+    { label: "Ore loggate", value: totals.logged, p: pct(totals.logged, totals.sold), color: "#003DA6", sub: `${fmtNum(pct(totals.logged, totals.sold), 0)}% del venduto` },
+    { label: "Enable invoice", value: totals.enable, p: pct(totals.enable, totals.sold), color: "#9DB8E6", sub: `${fmtNum(pct(totals.enable, totals.sold), 0)}% del venduto` },
+    { label: "Fatturate", value: totals.invoiced, p: pct(totals.invoiced, totals.sold), color: "#002F80", sub: `${fmtNum(pct(totals.invoiced, totals.sold), 0)}% del venduto` },
+    { label: "Residuo", value: totals.remaining, p: pct(Math.max(totals.remaining, 0), totals.sold), color: "#0F8A5F", sub: `${fmtNum(totals.remaining / HOURS_PER_DAY)} giornate` }
   ];
 
   const shown = aggregates.slice(0, renderLimit);
@@ -613,7 +613,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
               <div className="ui-skeleton" style={{ height: 30, width: "60%" }} />
             ) : (
               <div className="ui-row" style={{ alignItems: "baseline", gap: 6 }}>
-                <span className="ui-kpi-value" style={{ color: k.value < 0 ? "#B4441F" : undefined }}>{fmtNum(k.value, 0)}</span>
+                <span className="ui-kpi-value" style={{ color: k.value < 0 ? "#C02B0A" : undefined }}>{fmtNum(k.value, 0)}</span>
                 <span className="ui-kpi-sub">h</span>
               </div>
             )}
@@ -649,7 +649,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
             <span style={{ fontSize: 12.5, color: "var(--muted)", fontWeight: 500, marginRight: 4 }}>Risorsa generica</span>
             {availableResources.length > 10 && (
               <input value={resSearch} onChange={(e) => setResSearch(e.target.value)} placeholder="Filtra risorse…" aria-label="Filtra risorse"
-                style={{ height: 32, border: "1px solid #DDD5CC", borderRadius: 999, padding: "0 12px", fontSize: 13, width: 160 }} />
+                style={{ height: 32, border: "1px solid #C9D5E3", borderRadius: 999, padding: "0 12px", fontSize: 13, width: 160 }} />
             )}
             {resChips.map((r) => {
               const on = selectedRes.includes(r);
@@ -674,7 +674,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
           <div className="ui-row" style={{ gap: 10 }}>
             <h2 className="ui-h2">Commesse nuove</h2>
             {!loading && (
-              <span className="ui-pill" style={{ background: newJobs.length ? "var(--accent-soft)" : "#EFEAE4", color: newJobs.length ? "var(--accent-ink)" : "var(--ink-2)" }}>
+              <span className="ui-pill" style={{ background: newJobs.length ? "var(--accent-soft)" : "#EBF0F6", color: newJobs.length ? "var(--accent-ink)" : "var(--ink-2)" }}>
                 {newJobs.length}
               </span>
             )}
@@ -742,8 +742,8 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
 
       {!loading && alerts.length > 0 && (
         <section className="pg-alerts" aria-label="Righe da attenzionare">
-          <span style={{ color: "#B4441F", display: "inline-flex" }}><Icon name="alert" size={18} /></span>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: "#6E2510", marginRight: 6 }}>
+          <span style={{ color: "#C02B0A", display: "inline-flex" }}><Icon name="alert" size={18} /></span>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: "#7A1C06", marginRight: 6 }}>
             {alerts.length === 1 ? "1 riga oltre il venduto" : `${alerts.length} righe oltre il venduto`}
           </span>
           {alerts.slice(0, 8).map((a, i) => (
@@ -753,7 +753,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
               <span className="ui-mono" style={{ fontWeight: 600, fontSize: 12 }}>{fmtNum(a.p, 0)}%</span>
             </button>
           ))}
-          {alerts.length > 8 && <span style={{ fontSize: 13, color: "#6E2510" }}>e altre {alerts.length - 8}</span>}
+          {alerts.length > 8 && <span style={{ fontSize: 13, color: "#7A1C06" }}>e altre {alerts.length - 8}</span>}
         </section>
       )}
 
@@ -764,7 +764,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
             <label style={{ fontSize: 13, color: "var(--muted)" }}>
               Ordina
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
-                style={{ height: 32, border: "1px solid #DDD5CC", borderRadius: 8, padding: "0 8px", background: "#fff", fontSize: 13, color: "var(--ink)" }}>
+                style={{ height: 32, border: "1px solid #C9D5E3", borderRadius: 8, padding: "0 8px", background: "#fff", fontSize: 13, color: "var(--ink)" }}>
                 <option value="job">Numero commessa</option>
                 <option value="date">Data ordine (recenti)</option>
                 <option value="progress">Avanzamento più alto</option>
@@ -865,7 +865,7 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
                             <div className="pg-cell" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={line.planDescription}>{line.planDescription || "—"}</span>
                               {line.resourceNo && (
-                                <span className="ui-tag" style={{ background: "#EFEAE4", color: "#4A423C", flex: "none" }} title={resourceNames[line.resourceNo] || line.resourceNo}>
+                                <span className="ui-tag" style={{ background: "#EBF0F6", color: "#3D4B57", flex: "none" }} title={resourceNames[line.resourceNo] || line.resourceNo}>
                                   {line.resourceNo}
                                 </span>
                               )}
@@ -904,10 +904,10 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
           </div>
         </div>
         <div className="cal-legend">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="cal-swatch" style={{ background: "#22466B", height: 6 }} />Fatturate</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="cal-swatch" style={{ background: "#A9BFD6", height: 6 }} />Enable invoice</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#F6DCD0", color: "#8C2F14", height: 20 }}>Sforata</span>loggato oltre il venduto</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#F5E7CF", color: "#6E4210", height: 20 }}>In chiusura</span>oltre il 90%</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="cal-swatch" style={{ background: "#002F80", height: 6 }} />Fatturate</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="cal-swatch" style={{ background: "#9DB8E6", height: 6 }} />Enable invoice</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#FCE1D6", color: "#9E2408", height: 20 }}>Sforata</span>loggato oltre il venduto</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span className="ui-pill" style={{ background: "#FDEFD2", color: "#6E3D00", height: 20 }}>In chiusura</span>oltre il 90%</span>
           <span className="ui-muted" style={{ marginLeft: "auto" }}>Avanzamento = ore loggate su vendute · fatturazione rispetto al venduto</span>
         </div>
       </section>

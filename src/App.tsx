@@ -5,26 +5,25 @@ import Sidebar, { type Route } from "./components/Sidebar";
 import CalendarPage from "./pages/CalendarPage";
 import ProgressPage, { type PlanningJob } from "./pages/ProgressPage";
 import TaskCreatePage from "./TaskCreatePage";
-import TaskTeamPage from "./TaskTeamPage";
 import TaskManagePage from "./TaskManagePage";
-import TaskDatabasePage from "./TaskDatabasePage";
-import TaskStatsPage from "./TaskStatsPage";
-import JobsPage from "./JobsPage";
 import TaskFromJobModal from "./TaskFromJobModal";
 import TaskResourceViewPage from "./TaskResourceViewPage";
-import TodoPage from "./TodoPage";
+import TodosPage from "./pages/TodosPage";
+import StatsPage from "./pages/StatsPage";
+import TeamPage from "./pages/TeamPage";
+import TasksDbPage from "./pages/TasksDbPage";
 import "./App.css";
 import "./ui.css";
 
 type AppRoute = Route | "nuovo-task";
-const ROUTES: AppRoute[] = ["calendario", "avanzamento", "todo", "commesse", "statistiche", "team", "database", "calendario-classico", "nuovo-task"];
+const ROUTES: AppRoute[] = ["calendario", "avanzamento", "todo", "statistiche", "team", "database", "calendario-classico", "nuovo-task"];
 
 /** Traduce i nomi pagina usati dalle pagine esistenti nelle nuove rotte. */
 const LEGACY_TO_ROUTE: Record<string, AppRoute> = {
   manage: "calendario",
   "job-progress": "avanzamento",
   todo: "todo",
-  jobs: "commesse",
+  jobs: "avanzamento",
   stats: "statistiche",
   team: "team",
   database: "database",
@@ -32,8 +31,9 @@ const LEGACY_TO_ROUTE: Record<string, AppRoute> = {
 };
 
 function readRoute(): AppRoute {
-  const raw = window.location.hash.replace(/^#\/?/, "").split("?")[0] as AppRoute;
-  return ROUTES.includes(raw) ? raw : "calendario";
+  const raw = window.location.hash.replace(/^#\/?/, "").split("?")[0];
+  if (raw === "commesse") return "avanzamento"; // pagina rimossa: le commesse sono nell'Avanzamento
+  return ROUTES.includes(raw as AppRoute) ? (raw as AppRoute) : "calendario";
 }
 
 function navigate(route: AppRoute) {
@@ -44,7 +44,6 @@ const TITLES: Record<AppRoute, string> = {
   calendario: "Calendario",
   avanzamento: "Avanzamento",
   todo: "Todo",
-  commesse: "Commesse aperte",
   statistiche: "Statistiche",
   team: "Team",
   database: "Database task",
@@ -60,10 +59,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<PlanningJob | null>(null);
-  const [currentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
   const [resourceView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const memberId = params.get("memberId") || params.get("member");
@@ -105,7 +100,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="ui-shell" style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#6B625A" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, color: "#5E6B78" }}>
           <div className="ui-brand-mark">BI</div>
           Caricamento dati…
         </div>
@@ -131,7 +126,7 @@ export default function App() {
     );
   }
 
-  const isNew = route === "calendario" || route === "avanzamento";
+  const isNew = route !== "calendario-classico" && route !== "nuovo-task";
   const sidebarRoute: Route = route === "nuovo-task" ? "calendario" : route;
 
   let content: JSX.Element;
@@ -143,19 +138,16 @@ export default function App() {
       content = <ProgressPage tasks={tasks} onCreateTaskFromJob={setSelectedJob} />;
       break;
     case "todo":
-      content = <TodoPage todos={todos} members={members} onTodosUpdate={setTodos} onSwitchPage={goLegacy} />;
-      break;
-    case "commesse":
-      content = <JobsPage tasks={tasks} onSwitchPage={goLegacy} onCreateTaskFromJob={(job) => setSelectedJob(job as PlanningJob)} />;
+      content = <TodosPage todos={todos} members={members} onTodosUpdate={setTodos} />;
       break;
     case "statistiche":
-      content = <TaskStatsPage tasks={tasks} members={members} currentMonth={currentMonth} onSwitchPage={goLegacy} />;
+      content = <StatsPage tasks={tasks} members={members} />;
       break;
     case "team":
-      content = <TaskTeamPage tasks={tasks} members={members} onMembersUpdate={setMembers} onSwitchPage={() => navigate("calendario")} />;
+      content = <TeamPage tasks={tasks} members={members} onMembersUpdate={setMembers} onTasksUpdate={setTasks} />;
       break;
     case "database":
-      content = <TaskDatabasePage tasks={tasks} members={members} onTasksUpdate={setTasks} onSwitchPage={() => navigate("calendario")} />;
+      content = <TasksDbPage tasks={tasks} members={members} onTasksUpdate={setTasks} />;
       break;
     case "nuovo-task":
       content = (

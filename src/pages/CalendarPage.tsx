@@ -6,6 +6,7 @@ import type { Member, Task, TaskStatus } from "../types";
 import TaskDetailModal from "../TaskDetailModal";
 import TaskCreateModal from "../TaskCreateModal";
 import Icon, { GripIcon } from "../components/Icon";
+import { computeJobPlanning, normalizeJobNo, useJobBudgets, type JobPlanning } from "../lib/jobBudgets";
 import {
   HOURS_PER_DAY,
   addDays,
@@ -39,7 +40,7 @@ interface Props {
 
 const STATUS_LABELS: Record<TaskStatus, string> = { todo: "Da fare", "in-progress": "In corso", done: "Completato" };
 const WEEKDAYS_SHORT = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
-const LEVEL_COLOR = { over: "#B4441F", high: "#A1600F", ok: "#2F5D8A", low: "#5E554E" } as const;
+const LEVEL_COLOR = { over: "#C02B0A", high: "#A85A00", ok: "#003DA6", low: "#53606C" } as const;
 
 function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -139,6 +140,11 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
   const leaveDays = totals.leave / HOURS_PER_DAY;
 
   const selected = selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null;
+
+  // Collegamento con le commesse: venduto, loggato e ore nei task aperti
+  const { budgets, error: budgetsError } = useJobBudgets();
+  const jobPlanning = useMemo(() => computeJobPlanning(budgets, tasks), [budgets, tasks]);
+  const jobOf = (t: Task) => jobPlanning.get(normalizeJobNo(t.commessa));
 
   // ---------- Timeline: posizionamento barre e corsie ----------
   const weeks = useMemo(() => {
@@ -406,7 +412,7 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
             <span className="ui-kpi-sub">{totals.target > 0 ? `target ${fmtEuro(totals.target)}` : "nessun target impostato"}</span>
           </div>
           <div className="ui-track">
-            <div className="ui-fill" style={{ width: `${totals.target > 0 ? Math.min((totals.value / totals.target) * 100, 100) : 0}%`, background: "#5B7B5E" }} />
+            <div className="ui-fill" style={{ width: `${totals.target > 0 ? Math.min((totals.value / totals.target) * 100, 100) : 0}%`, background: "#0F8A5F" }} />
           </div>
         </div>
         <div className="ui-card ui-card-pad ui-kpi">
@@ -460,8 +466,8 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
               <>
                 <div className="cal-scroll">
                   <div style={{ minWidth: 200 + dayKeys.length * 28 }}>
-                    <div className="tl-grid" style={{ gridTemplateColumns: gridCols, background: "#FAF8F5", borderBottom: "1px solid var(--line-soft)" }}>
-                      <div className="tl-namecol" style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "#FAF8F5" }}>
+                    <div className="tl-grid" style={{ gridTemplateColumns: gridCols, background: "#F8FAFD", borderBottom: "1px solid var(--line-soft)" }}>
+                      <div className="tl-namecol" style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: "var(--muted)", background: "#F8FAFD" }}>
                         Risorsa · carico mese
                       </div>
                       {weeks.map((w) => (
@@ -566,6 +572,9 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
                                     <span className="tl-bar-h">{fmtNum(task.hours)}h</span>
                                   </>
                                 )}
+                                {!leave && jobOf(task)?.over && (
+                                  <span className="tl-over" title="Commessa pianificata oltre il venduto" aria-label="Commessa oltre il venduto" />
+                                )}
                                 {!leave && !clipR && (
                                   <span className="tl-edge r" draggable onDragStart={(e) => startDrag(e, { taskId: task.id, mode: "end", origin: "timeline" })} />
                                 )}
@@ -651,6 +660,8 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
               onStatus={(s) => applyUpdate(selected.id, { status: s })}
               onEdit={() => setEditingTask(selected)}
               onDelete={() => handleDelete(selected)}
+              job={jobOf(selected) ?? null}
+              jobState={budgets ? "ready" : budgetsError ? "error" : "loading"}
             />
           )}
 
@@ -681,6 +692,11 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                         <span className="ui-tag" style={{ background: c.bg, color: c.fg }}>{t.commessa}</span>
                         {t.assigneeId && <span style={{ fontSize: 12, color: "var(--muted)" }}>{memberById.get(t.assigneeId)?.name}</span>}
+                        {jobOf(t) && (
+                          <span className="ui-num" style={{ fontSize: 12, fontWeight: 600, color: jobOf(t)!.over ? "var(--danger)" : "var(--muted)" }}>
+                            {jobOf(t)!.over ? `oltre il venduto di ${fmtNum(-jobOf(t)!.available)} h` : `${fmtNum(jobOf(t)!.available)} h disponibili`}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <button className="ui-btn ghost" style={{ width: 28, height: 28, padding: 0, color: "var(--muted)" }} aria-label={`Modifica ${t.description}`} onClick={() => setEditingTask(t)}>
@@ -759,10 +775,12 @@ export default function CalendarPage({ tasks, members, onTasksUpdate }: Props) {
 }
 
 function SelectedPanel({
-  task, member, onClose, onStatus, onEdit, onDelete
+  task, member, onClose, onStatus, onEdit, onDelete, job, jobState
 }: {
   task: Task;
   member?: Member;
+  job: JobPlanning | null;
+  jobState: "loading" | "ready" | "error";
   onClose: () => void;
   onStatus: (s: TaskStatus) => void;
   onEdit: () => void;
@@ -795,10 +813,11 @@ function SelectedPanel({
           <Field
             label="Carico giornaliero"
             value={scheduled ? `${fmtNum(daily)} h/gg${daily > HOURS_PER_DAY ? " · oltre 8h" : ""}` : "—"}
-            color={daily > HOURS_PER_DAY ? "#B4441F" : undefined}
+            color={daily > HOURS_PER_DAY ? "#C02B0A" : undefined}
           />
         )}
       </div>
+      {!leave && task.commessa && <JobBox commessa={task.commessa} job={job} state={jobState} />}
       {!leave && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span className="ui-muted" style={{ fontSize: 12 }}>Stato</span>
@@ -816,6 +835,45 @@ function SelectedPanel({
         <button className="ui-btn danger" style={{ flex: 1 }} onClick={onDelete}><Icon name="trash" size={15} /> Elimina</button>
       </div>
     </section>
+  );
+}
+
+function JobBox({ commessa, job, state }: { commessa: string; job: JobPlanning | null; state: "loading" | "ready" | "error" }) {
+  if (!job) {
+    return (
+      <div className="job-box">
+        <span className="ui-muted" style={{ fontSize: 12.5 }}>
+          {state === "loading" ? "Carico i dati della commessa…" : state === "error" ? "Dati di avanzamento non disponibili." : `La commessa ${commessa} non è nei dati di avanzamento.`}
+        </span>
+      </div>
+    );
+  }
+  const scale = Math.max(job.sold, job.logged + job.plannedOpen, 1);
+  const w = (h: number) => `${Math.max(0, Math.min(100, (h / scale) * 100))}%`;
+  return (
+    <div className={`job-box${job.over ? " over" : ""}`} aria-label="Budget della commessa">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>Budget commessa</span>
+        <span className="ui-pill" style={job.over ? { background: "var(--danger-soft)", color: "var(--danger-ink)" } : { background: "var(--accent-soft)", color: "var(--accent-ink)" }}>
+          {job.over ? `Oltre di ${fmtNum(-job.available)} h` : `${fmtNum(job.available)} h disponibili`}
+        </span>
+      </div>
+      <div className="job-bar" title="Loggato · nei task aperti · venduto">
+        <div className="seg logged" style={{ width: w(job.logged) }} />
+        <div className="seg planned" style={{ width: w(job.plannedOpen) }} />
+        {job.sold < scale && <div className="sold-mark" style={{ left: w(job.sold) }} />}
+      </div>
+      <div className="ui-grid2" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+        <Field label="Venduto" value={`${fmtNum(job.sold)} h`} />
+        <Field label="Loggato" value={`${fmtNum(job.logged)} h`} />
+        <Field label="Nei task aperti" value={`${fmtNum(job.plannedOpen)} h`} />
+      </div>
+      {job.over && (
+        <span style={{ fontSize: 12.5, color: "var(--danger-ink)" }}>
+          Le ore loggate più quelle dei task ancora aperti superano il venduto: rivedi le stime o concorda un'estensione.
+        </span>
+      )}
+    </div>
   );
 }
 

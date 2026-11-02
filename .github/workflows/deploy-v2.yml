@@ -19,6 +19,14 @@ jobs:
         with:
           node-version: "20"
       - run: npm ci || npm install
+      - name: Controllo tipi (codice nuovo)
+        run: |
+          npx tsc -p tsconfig.json --noEmit > tsc.log 2>&1 || true
+          echo "Errori TypeScript totali (inclusi quelli storici di api.ts): $(grep -c 'error TS' tsc.log || true)"
+          if grep -E "^src/(App\.tsx|pages/|lib/|components/)" tsc.log; then
+            echo "::error::Errori di tipo nel codice nuovo: deploy bloccato"
+            exit 1
+          fi
       - name: Build
         env:
           VITE_BASE: /INT-APPTASKBI-V2/

@@ -34,7 +34,7 @@ export default function Icon({ name, size = 16, strokeWidth = 1.8 }: { name: key
 
 export function GripIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="#A89E95" aria-hidden="true" style={{ flex: "none", marginTop: 2 }}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="#9FB4CC" aria-hidden="true" style={{ flex: "none", marginTop: 2 }}>
       {[6, 12, 18].map((y) => (<g key={y}><circle cx="9" cy={y} r="1.6" /><circle cx="15" cy={y} r="1.6" /></g>))}
     </svg>
   );
