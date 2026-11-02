@@ -227,6 +227,12 @@
   grid-template-columns: 40px 108px minmax(180px, 2fr) minmax(150px, 1.2fr) minmax(150px, 1.2fr) 96px 116px minmax(150px, 1.3fr) 96px;
   align-items: center;
 }
+.nj-row {
+  display: grid; grid-template-columns: 72px 112px minmax(220px, 2fr) 80px 96px minmax(130px, 1fr) 150px;
+  align-items: center; gap: 0 12px; padding: 8px 16px; min-height: 52px; border-bottom: 1px solid var(--line-soft);
+}
+.nj-row:last-child { border-bottom: 0; }
+.nj-row:hover { background: #f8f9fb; }
 .pg-head { background: #fafbfc; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); }
 .pg-head > span { padding: 10px 8px; }
 .pg-job { border-bottom: 1px solid var(--line-soft); min-height: 64px; }

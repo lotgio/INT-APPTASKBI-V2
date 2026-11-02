@@ -11,7 +11,7 @@ import {
 } from "../api";
 import type { Task } from "../types";
 import Icon from "../components/Icon";
-import { HOURS_PER_DAY, fmtNum } from "../lib/planning";
+import { HOURS_PER_DAY, fmtEuro, fmtNum } from "../lib/planning";
 
 export interface PlanningJob {
   jobNo: string;
@@ -47,6 +47,8 @@ interface JobLine {
   invoicedActivities: number;
   plannedHours: number;
   resourceNo: string;
+  documentDate: string;
+  soldValue: number;
 }
 
 interface JobAggregate {
@@ -60,10 +62,26 @@ interface JobAggregate {
   enableInvoiceActivities: number;
   invoicedActivities: number;
   lineCount: number;
+  documentDate: string;
 }
 
 type Scope = "bi" | "crm" | "all";
-type SortKey = "job" | "progress" | "remaining";
+type SortKey = "job" | "date" | "progress" | "remaining";
+type NewPeriod = "visit" | "7" | "30" | "month";
+const VISIT_KEY = "apptaskbi_v2_last_visit_progress";
+const NEW_PREVIEW = 6;
+
+/** job_DocumentDate arriva come "YYYY-MM-DD HH:mm:ss" in UTC (es. 23:00 = mezzanotte italiana). */
+function parseDocDate(value: string): Date | null {
+  if (!value) return null;
+  const iso = value.trim().replace(" ", "T");
+  const d = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z");
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+const fmtDocDate = (value: string, withYear = true) => {
+  const d = parseDocDate(value);
+  return d ? d.toLocaleDateString("it-IT", withYear ? { day: "2-digit", month: "2-digit", year: "2-digit" } : { day: "numeric", month: "short" }) : "—";
+};
 
 const PAGE_SIZE = 1000;
 const RENDER_STEP = 120;
@@ -162,6 +180,11 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
   });
   const [renderLimit, setRenderLimit] = useState(RENDER_STEP);
   const [flashJob, setFlashJob] = useState<string | null>(null);
+  const [prevVisit] = useState<number | null>(() => {
+    try { const v = Number(localStorage.getItem(VISIT_KEY)); return v > 0 ? v : null; } catch { return null; }
+  });
+  const [newPeriod, setNewPeriod] = useState<NewPeriod>(() => (prevVisit ? "visit" : "30"));
+  const [showAllNew, setShowAllNew] = useState(false);
   const noteTimers = useRef<Record<string, number>>({});
 
   const plannedByJob = useMemo(() => {
@@ -209,7 +232,9 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
             enableInvoiceActivities: pickMetric(row["Nr Enable Invoice"], enable),
             invoicedActivities: pickMetric(row["Nr Fatturate"], invoiced),
             plannedHours: 0,
-            resourceNo: String(row["Resource No"] || "")
+            resourceNo: String(row["Resource No"] || ""),
+            documentDate: String(row.job_DocumentDate || ""),
+            soldValue: toNumber(row.Quantity) * toNumber(row["Unit Price"])
           };
         })
       );
@@ -296,7 +321,8 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
         map.set(l.jobNo, {
           jobNo: l.jobNo, customerName: l.customerName, division: l.division, mainDescription: l.mainDescription,
           soldHours: l.soldHours, loggedHours: l.loggedHours, loggedActivities: l.loggedActivities,
-          enableInvoiceActivities: l.enableInvoiceActivities, invoicedActivities: l.invoicedActivities, lineCount: 1
+          enableInvoiceActivities: l.enableInvoiceActivities, invoicedActivities: l.invoicedActivities, lineCount: 1,
+          documentDate: l.documentDate
         });
         return;
       }
@@ -307,10 +333,12 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
       ex.enableInvoiceActivities += l.enableInvoiceActivities;
       ex.invoicedActivities += l.invoicedActivities;
       ex.lineCount += 1;
+      if (l.documentDate && (!ex.documentDate || l.documentDate < ex.documentDate)) ex.documentDate = l.documentDate;
     });
     let all = Array.from(map.values());
     if (hideInvoiced) all = all.filter((j) => j.soldHours <= 0 || j.invoicedActivities < j.soldHours);
     if (sortKey === "progress") all.sort((a, b) => pct(b.loggedHours, b.soldHours) - pct(a.loggedHours, a.soldHours));
+    else if (sortKey === "date") all.sort((a, b) => (b.documentDate || "").localeCompare(a.documentDate || "") || b.jobNo.localeCompare(a.jobNo));
     else if (sortKey === "remaining") all.sort((a, b) => (a.soldHours - a.loggedHours) - (b.soldHours - b.loggedHours));
     else all.sort((a, b) => b.jobNo.localeCompare(a.jobNo));
     return all;
@@ -341,6 +369,63 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
     });
     return out.sort((a, b) => b.p - a.p);
   }, [filteredLines, visibleJobNos]);
+
+  useEffect(() => {
+    if (!loading && lines.length > 0) {
+      try { localStorage.setItem(VISIT_KEY, String(Date.now())); } catch { /* ignore */ }
+    }
+  }, [loading, lines.length]);
+
+  const newCutoff = useMemo(() => {
+    const now = new Date();
+    if (newPeriod === "visit" && prevVisit) return new Date(prevVisit);
+    if (newPeriod === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+    const days = newPeriod === "7" ? 7 : 30;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+  }, [newPeriod, prevVisit]);
+
+  const newJobs = useMemo(() => {
+    const sel = new Set(selectedRes);
+    const map = new Map<string, { jobNo: string; date: string; customer: string; description: string; division: string; sold: number; logged: number; value: number; lines: number; resources: Set<string> }>();
+    lines.forEach((l) => {
+      if (l.jobNo.toUpperCase().startsWith("COIG")) return;
+      if (scope === "all" && sel.size && !sel.has(l.resourceNo)) return;
+      const ex = map.get(l.jobNo);
+      if (!ex) {
+        map.set(l.jobNo, { jobNo: l.jobNo, date: l.documentDate, customer: l.customerName, description: l.mainDescription, division: l.division,
+          sold: l.soldHours, logged: l.loggedHours, value: l.soldValue, lines: 1, resources: new Set(l.resourceNo ? [l.resourceNo] : []) });
+        return;
+      }
+      if (l.documentDate && (!ex.date || l.documentDate < ex.date)) ex.date = l.documentDate;
+      ex.sold += l.soldHours;
+      ex.logged += l.loggedHours;
+      ex.value += l.soldValue;
+      ex.lines += 1;
+      if (l.resourceNo) ex.resources.add(l.resourceNo);
+    });
+    return Array.from(map.values())
+      .filter((j) => { const d = parseDocDate(j.date); return !!d && d >= newCutoff; })
+      .sort((a, b) => b.date.localeCompare(a.date) || b.jobNo.localeCompare(a.jobNo));
+  }, [lines, scope, selectedRes, newCutoff]);
+  const newJobNos = useMemo(() => new Set(newJobs.map((j) => j.jobNo)), [newJobs]);
+  const periodAutoChecked = useRef(false);
+  useEffect(() => {
+    // Se dall'ultima visita non è entrato nulla, mostra gli ultimi 30 giorni invece di una lista vuota
+    if (loading || lines.length === 0 || periodAutoChecked.current) return;
+    periodAutoChecked.current = true;
+    if (newPeriod === "visit" && newJobs.length === 0) setNewPeriod("30");
+  }, [loading, lines.length, newPeriod, newJobs.length]);
+  const newTotals = useMemo(() => newJobs.reduce((a, j) => ({ hours: a.hours + j.sold, value: a.value + j.value }), { hours: 0, value: 0 }), [newJobs]);
+  const newPeriodText =
+    newPeriod === "visit" && prevVisit
+      ? `dall'ultima visita (${new Date(prevVisit).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })})`
+      : newPeriod === "7" ? "negli ultimi 7 giorni" : newPeriod === "month" ? "da inizio mese" : "negli ultimi 30 giorni";
+
+  const openNewJob = (jobNo: string) => {
+    setSearch("");
+    setHideInvoiced(false);
+    window.setTimeout(() => goToJob(jobNo), 80);
+  };
 
   const goToJob = (jobNo: string) => {
     setExpanded((prev) => ({ ...prev, [jobNo]: true }));
@@ -584,6 +669,77 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
         )}
       </section>
 
+      <section className="ui-card" aria-label="Commesse nuove" style={{ overflow: "hidden" }}>
+        <div className="ui-card-head" style={{ flexWrap: "wrap" }}>
+          <div className="ui-row" style={{ gap: 10 }}>
+            <h2 className="ui-h2">Commesse nuove</h2>
+            {!loading && (
+              <span className="ui-pill" style={{ background: newJobs.length ? "var(--accent-soft)" : "#EEF0F3", color: newJobs.length ? "var(--accent-ink)" : "var(--ink-2)" }}>
+                {newJobs.length}
+              </span>
+            )}
+            {!loading && newJobs.length > 0 && (
+              <span className="ui-muted ui-num" style={{ fontSize: 12.5 }}>{fmtNum(newTotals.hours, 0)} h vendute · {fmtEuro(newTotals.value)}</span>
+            )}
+          </div>
+          <div className="ui-seg" role="group" aria-label="Periodo commesse nuove">
+            {prevVisit && <button aria-pressed={newPeriod === "visit"} onClick={() => setNewPeriod("visit")}>Dall'ultima visita</button>}
+            <button aria-pressed={newPeriod === "7"} onClick={() => setNewPeriod("7")}>7 giorni</button>
+            <button aria-pressed={newPeriod === "30"} onClick={() => setNewPeriod("30")}>30 giorni</button>
+            <button aria-pressed={newPeriod === "month"} onClick={() => setNewPeriod("month")}>Questo mese</button>
+          </div>
+        </div>
+        {loading ? (
+          <div style={{ padding: "14px 16px" }}><div className="ui-skeleton" style={{ width: "50%" }} /></div>
+        ) : newJobs.length === 0 ? (
+          <div className="ui-muted" style={{ padding: "14px 16px", fontSize: 13.5 }}>Nessuna commessa nuova {newPeriodText}.</div>
+        ) : (
+          <div className="cal-scroll">
+            <div style={{ minWidth: 900 }}>
+              {(showAllNew ? newJobs : newJobs.slice(0, NEW_PREVIEW)).map((j) => {
+                const planned = plannedByJob[j.jobNo] || { total: 0, open: 0 };
+                const remaining = j.sold - j.logged;
+                return (
+                  <div key={j.jobNo} className="nj-row">
+                    <span className="ui-num" style={{ fontSize: 13, fontWeight: 600 }}>{fmtDocDate(j.date, false)}</span>
+                    <span className="ui-mono" style={{ fontSize: 12.5, fontWeight: 600 }}>{j.jobNo}</span>
+                    <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.customer || "—"}</span>
+                      <span style={{ fontSize: 12.5, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={j.description}>
+                        {j.description || "—"} · {j.lines === 1 ? "1 riga" : `${j.lines} righe`}
+                      </span>
+                    </div>
+                    <span className="ui-num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600 }}>{fmtNum(j.sold)} h</span>
+                    <span className="ui-num" style={{ textAlign: "right", fontSize: 13.5 }}>{j.value > 0 ? fmtEuro(j.value) : "—"}</span>
+                    <span style={{ fontSize: 12.5, color: planned.total > 0 ? "var(--ink-2)" : "var(--muted)" }}>
+                      {planned.total > 0 ? `${fmtNum(planned.total)} h pianificate` : "da pianificare"}
+                    </span>
+                    <div className="ui-row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                      <button className="ui-btn sm" onClick={() => openNewJob(j.jobNo)}>Apri</button>
+                      <button className="ui-btn sm" onClick={() => onCreateTaskFromJob?.({
+                        jobNo: j.jobNo, jobPlanNo: "", planDescription: j.description || `Task per ${j.jobNo}`, division: j.division,
+                        customerName: j.customer, quantity: j.sold, ogreLoggate: j.logged, orePianificate: planned.total,
+                        orePianificateAperte: planned.open, oreResidueUfficiali: Math.max(0, remaining),
+                        orePianificabili: Math.max(0, remaining - planned.open)
+                      })}>
+                        <Icon name="plus" size={13} strokeWidth={2} /> Task
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {!loading && newJobs.length > NEW_PREVIEW && (
+          <div style={{ padding: "8px 16px", borderTop: "1px solid var(--line-soft)" }}>
+            <button className="ui-btn sm ghost" style={{ color: "var(--accent)" }} onClick={() => setShowAllNew((v) => !v)}>
+              {showAllNew ? "Mostra meno" : `Mostra tutte (${newJobs.length})`}
+            </button>
+          </div>
+        )}
+      </section>
+
       {!loading && alerts.length > 0 && (
         <section className="pg-alerts" aria-label="Righe da attenzionare">
           <span style={{ color: "#C2410C", display: "inline-flex" }}><Icon name="alert" size={18} /></span>
@@ -609,7 +765,8 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
               Ordina
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
                 style={{ height: 32, border: "1px solid #dadfe6", borderRadius: 8, padding: "0 8px", background: "#fff", fontSize: 13, color: "var(--ink)" }}>
-                <option value="job">Commessa (recenti)</option>
+                <option value="job">Numero commessa</option>
+                <option value="date">Data ordine (recenti)</option>
                 <option value="progress">Avanzamento più alto</option>
                 <option value="remaining">Residuo più basso</option>
               </select>
@@ -664,7 +821,14 @@ export default function ProgressPage({ tasks, onCreateTaskFromJob }: Props) {
                         onClick={() => setExpanded((prev) => ({ ...prev, [job.jobNo]: !open }))}>
                         <span style={{ display: "inline-flex", transition: "transform .15s", transform: `rotate(${open ? 90 : 0}deg)` }}><Icon name="right" strokeWidth={2} /></span>
                       </button>
-                      <span className="pg-cell ui-mono" style={{ fontSize: 13, fontWeight: 600 }}>{job.jobNo}</span>
+                      <div className="pg-cell" style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                        <span className="ui-mono" style={{ fontSize: 13, fontWeight: 600 }}>{job.jobNo}</span>
+                        {newJobNos.has(job.jobNo) ? (
+                          <span className="ui-pill" style={{ height: 18, fontSize: 11, padding: "0 7px", background: "var(--accent-soft)", color: "var(--accent-ink)" }}>Nuova · {fmtDocDate(job.documentDate, false)}</span>
+                        ) : (
+                          <span className="ui-muted ui-num" style={{ fontSize: 11.5 }} title="Data ordine">{fmtDocDate(job.documentDate)}</span>
+                        )}
+                      </div>
                       <div className="pg-cell" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <span style={{ fontSize: 14, fontWeight: 600 }}>{job.customerName || "—"}</span>
                         <span style={{ fontSize: 12.5, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={job.mainDescription}>
