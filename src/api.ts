@@ -14,7 +14,8 @@ const USE_MOCK_JOBS = USE_LOCAL_STORAGE || IS_GITHUB_PAGES;
 const ALLOW_STATIC_JOBS_FALLBACK =
   USE_LOCAL_STORAGE ||
   (import.meta as any)?.env?.VITE_ALLOW_STATIC_JOBS_FALLBACK === "true";
-const JOBS_REMOTE_URL = ((import.meta as any)?.env?.VITE_JOBS_URL || "").trim();
+// Nota: Vite sostituisce solo la forma letterale import.meta.env.VITE_*
+const JOBS_REMOTE_URL = ((import.meta.env.VITE_JOBS_URL as string | undefined) || "").trim();
 const BASE_URL = ((import.meta as any)?.env?.BASE_URL || "/") as string;
 let jobsCache: any[] | null = null;
 
@@ -559,7 +560,7 @@ export async function getJobsDataLastUpdate(): Promise<string | null> {
 export async function getResources(): Promise<Record<string, string>> {
   try {
     // Risolve resources.json relativo alla pagina corrente (funziona su qualsiasi subpath)
-    const configured = (((import.meta as any)?.env?.VITE_RESOURCES_URL || "") as string).trim();
+    const configured = ((import.meta.env.VITE_RESOURCES_URL as string | undefined) || "").trim();
     const url = configured || new URL("resources.json", window.location.href).href;
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
