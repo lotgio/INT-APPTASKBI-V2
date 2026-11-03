@@ -158,24 +158,50 @@ export type MemberStat = {
   monthlyTarget: number;
 };
 
+const yearHoursCache = new Map<number, number>();
 function yearlyWorkingHours(year: number): number {
+  const cached = yearHoursCache.get(year);
+  if (cached !== undefined) return cached;
   let total = 0;
   for (let m = 0; m < 12; m++) total += getWorkingDaysInMonth(new Date(year, m, 1)) * HOURS_PER_DAY;
+  yearHoursCache.set(year, total);
   return total;
 }
 
-export function computeMemberStats(tasks: Task[], members: Member[], month: Date): MemberStat[] {
-  const { start, end } = monthBounds(month);
-  const availableHours = getWorkingDaysInMonth(month) * HOURS_PER_DAY;
-  const yearHours = yearlyWorkingHours(month.getFullYear());
+/** Quota dell'obiettivo annuo che spetta a un intervallo, in proporzione ai giorni lavorativi (anche a cavallo d'anno). */
+export function targetForRange(annualTarget: number | undefined, start: Date, end: Date): number {
+  if (!annualTarget) return 0;
+  let total = 0;
+  for (let y = start.getFullYear(); y <= end.getFullYear(); y++) {
+    const ys = new Date(Math.max(start.getTime(), new Date(y, 0, 1).getTime()));
+    const ye = new Date(Math.min(end.getTime(), new Date(y, 11, 31).getTime()));
+    const yearHours = yearlyWorkingHours(y);
+    if (yearHours > 0) total += (annualTarget * countWorkingDaysBetween(ys, ye) * HOURS_PER_DAY) / yearHours;
+  }
+  return total;
+}
+
+/** Statistiche di carico per un intervallo qualsiasi (mese, trimestre, anno, settimana). */
+export function computeMemberStatsRange(tasks: Task[], members: Member[], start: Date, end: Date): MemberStat[] {
+  const availableHours = countWorkingDaysBetween(start, end) * HOURS_PER_DAY;
+  const byMember = new Map<string, Task[]>();
+  for (const t of tasks) {
+    if (!t.assigneeId || !isScheduled(t) || t.endDate < formatDate(start) || t.startDate > formatDate(end)) continue;
+    const list = byMember.get(t.assigneeId);
+    if (list) list.push(t); else byMember.set(t.assigneeId, [t]);
+  }
   return members.map((member) => {
-    const own = tasks.filter((t) => t.assigneeId === member.id && isScheduled(t));
-    const assignedHours = own.reduce((s, t) => s + getTaskHoursInRange(t, start, end), 0);
-    const leaveHours = own.filter(isLeaveTask).reduce((s, t) => s + getTaskHoursInRange(t, start, end), 0);
+    const own = byMember.get(member.id) ?? [];
+    let assignedHours = 0;
+    let leaveHours = 0;
+    for (const t of own) {
+      const h = getTaskHoursInRange(t, start, end);
+      assignedHours += h;
+      if (isLeaveTask(t)) leaveHours += h;
+    }
     const workHours = Math.max(0, assignedHours - leaveHours);
     const effectiveAvailableHours = Math.max(0, availableHours - leaveHours);
     const percentage = effectiveAvailableHours > 0 ? (workHours / effectiveAvailableHours) * 100 : 0;
-    const monthlyTarget = member.annualTarget && yearHours ? (member.annualTarget / yearHours) * availableHours : 0;
     return {
       member,
       assignedHours,
@@ -186,9 +212,14 @@ export function computeMemberStats(tasks: Task[], members: Member[], month: Date
       percentage,
       remainingHours: effectiveAvailableHours - workHours,
       economicValue: workHours * HOURLY_RATE,
-      monthlyTarget
+      monthlyTarget: targetForRange(member.annualTarget, start, end)
     };
   });
+}
+
+export function computeMemberStats(tasks: Task[], members: Member[], month: Date): MemberStat[] {
+  const { start, end } = monthBounds(month);
+  return computeMemberStatsRange(tasks, members, start, end);
 }
 
 export type LoadLevel = "over" | "high" | "ok" | "low";
