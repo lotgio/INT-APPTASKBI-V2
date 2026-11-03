@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getJobs } from "../api";
 import type { Task } from "../types";
-import { isLeaveTask } from "./planning";
+import { getTaskHoursInRange, isLeaveTask, isScheduled, parseDate } from "./planning";
 
 /** Totali di una commessa dai dati di avanzamento (tutte le righe, escluse le trasferte). */
 export type JobBudget = {
@@ -15,7 +15,7 @@ export type JobBudget = {
 };
 
 export type JobPlanning = JobBudget & {
-  plannedOpen: number; // ore dei task non completati su questa commessa
+  plannedOpen: number; // ore ancora da svolgere: task non completati, dalla data di oggi in poi (le ore passate sono già nel loggato)
   plannedTotal: number;
   available: number; // venduto − loggato − pianificato aperto
   over: boolean;
@@ -82,9 +82,10 @@ export function useJobBudgets() {
 }
 
 /** Incrocia il budget di ogni commessa con le ore dei task pianificati sul calendario. */
-export function computeJobPlanning(budgets: Map<string, JobBudget> | null, tasks: Task[]): Map<string, JobPlanning> {
+export function computeJobPlanning(budgets: Map<string, JobBudget> | null, tasks: Task[], today: Date = new Date()): Map<string, JobPlanning> {
   const out = new Map<string, JobPlanning>();
   if (!budgets) return out;
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const planned = new Map<string, { open: number; total: number }>();
   for (const t of tasks) {
     if (isLeaveTask(t)) continue;
@@ -93,7 +94,10 @@ export function computeJobPlanning(budgets: Map<string, JobBudget> | null, tasks
     const p = planned.get(key) ?? { open: 0, total: 0 };
     const h = num(t.hours);
     p.total += h;
-    if (t.status !== "done") p.open += h;
+    if (t.status !== "done") {
+      if (!isScheduled(t)) p.open += h; // non ancora in calendario: tutto da svolgere
+      else if (parseDate(t.endDate) >= from) p.open += getTaskHoursInRange(t, from, parseDate(t.endDate));
+    }
     planned.set(key, p);
   }
   for (const [key, p] of planned) {

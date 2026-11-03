@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import type { Member, Task, TaskStatus } from "../types";
+import type { Member, Task } from "../types";
 import Icon from "../components/Icon";
 import {
   HOURS_PER_DAY,
@@ -36,11 +36,11 @@ interface Props {
 const LEVEL_COLOR = { over: "#C02B0A", high: "#A85A00", ok: "#003DA6", low: "#53606C" } as const;
 const MONTHS_SHORT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 const MONTHS_LONG = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
-const STATUS_META: Record<TaskStatus, { label: string; color: string }> = {
-  done: { label: "Completato", color: "#0F8A5F" },
-  "in-progress": { label: "In corso", color: "#003DA6" },
-  todo: { label: "Da fare", color: "#9DB8E6" }
-};
+const SPLIT_META = {
+  past: { label: "Già svolte", color: "#003DA6" },
+  future: { label: "Da svolgere", color: "#9DB8E6" }
+} as const;
+type SplitKey = keyof typeof SPLIT_META;
 /** Scala sequenziale del blu Serinf: testo scuro sui primi tre gradini, bianco sugli ultimi due (contrasto ≥ 4,9). */
 const HEAT = [
   { max: 25, bg: "#E3ECF9", fg: "#0E2B3D", label: "fino al 25%" },
@@ -188,17 +188,18 @@ export default function StatsPage({ tasks, members }: Props) {
     return s.sort((a, b) => b.percentage - a.percentage);
   }, [stats, sort]);
 
-  // Ore del periodo per stato del task
-  const byStatus = useMemo(() => {
-    const out: Record<TaskStatus, number> = { done: 0, "in-progress": 0, todo: 0 };
+  // Ore del periodo già svolte (fino a ieri) e da svolgere (da oggi), in base al calendario
+  const split = useMemo(() => {
+    const out: Record<SplitKey, number> = { past: 0, future: 0 };
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
     for (const t of tasks) {
       if (!isScheduled(t) || isLeaveTask(t) || !t.assigneeId || !visibleIds.has(t.assigneeId)) continue;
-      const h = getTaskHoursInRange(t, start, end);
-      if (h > 0) out[t.status in out ? t.status : "todo"] += h;
+      if (yesterday >= start) out.past += getTaskHoursInRange(t, start, yesterday < end ? yesterday : end);
+      if (today <= end) out.future += getTaskHoursInRange(t, today > start ? today : start, end);
     }
     return out;
-  }, [tasks, visibleIds, startKey, period]); // eslint-disable-line react-hooks/exhaustive-deps
-  const statusTotal = byStatus.done + byStatus["in-progress"] + byStatus.todo;
+  }, [tasks, visibleIds, startKey, period, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const splitTotal = split.past + split.future;
 
   // ---------- mappa di carico ----------
   const buckets = useMemo(() => makeBuckets(period, start, end, today), [period, startKey, today]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -224,9 +225,13 @@ export default function StatsPage({ tasks, members }: Props) {
   const bucketTitle = (b: Bucket) => (period === "year" ? `${MONTHS_LONG[b.start.getMonth()]} ${b.start.getFullYear()}` : `settimana ${b.label.slice(1)} (${b.sub} ${MONTHS_SHORT[b.end.getMonth()].toLowerCase()})`);
 
   // ---------- segnali ----------
-  const overdue = useMemo(() => tasks
-    .filter((t) => isScheduled(t) && !isLeaveTask(t) && t.status !== "done" && t.endDate.slice(0, 10) < todayKey && inScope(t))
-    .sort((a, b) => (a.endDate! < b.endDate! ? -1 : 1)), [tasks, todayKey, visibleIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Task terminati negli ultimi 30 giorni ma ancora aperti (da chiudere o da ripianificare)
+  const overdue = useMemo(() => {
+    const from = formatDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30));
+    return tasks
+      .filter((t) => isScheduled(t) && !isLeaveTask(t) && t.status !== "done" && t.endDate.slice(0, 10) < todayKey && t.endDate.slice(0, 10) >= from && inScope(t))
+      .sort((a, b) => (a.endDate! > b.endDate! ? -1 : 1));
+  }, [tasks, todayKey, today, visibleIds]); // eslint-disable-line react-hooks/exhaustive-deps
   const unscheduled = useMemo(() => tasks.filter((t) => !isScheduled(t) && !isLeaveTask(t) && t.status !== "done" && inScope(t)), [tasks, visibleIds]); // eslint-disable-line react-hooks/exhaustive-deps
   const jobsOver = useMemo(() => {
     const plan = computeJobPlanning(budgets, tasks);
@@ -400,14 +405,14 @@ export default function StatsPage({ tasks, members }: Props) {
             <span className="ui-kpi-value st-hero">{fmtNum(totals.work, 0)} h</span>
             <span className="ui-kpi-sub">su {fmtNum(totals.avail, 0)} h</span>
           </div>
-          <div className="st-seg" role="img" aria-label={(Object.keys(STATUS_META) as TaskStatus[]).map((k) => `${STATUS_META[k].label} ${fmtNum(byStatus[k], 0)} h`).join(", ")}>
-            {statusTotal > 0 ? (Object.keys(STATUS_META) as TaskStatus[]).filter((k) => byStatus[k] > 0).map((k) => (
-              <span key={k} style={{ flexGrow: byStatus[k], background: STATUS_META[k].color }} />
+          <div className="st-seg" role="img" aria-label={(Object.keys(SPLIT_META) as SplitKey[]).map((k) => `${SPLIT_META[k].label} ${fmtNum(split[k], 0)} h`).join(", ")}>
+            {splitTotal > 0 ? (Object.keys(SPLIT_META) as SplitKey[]).filter((k) => split[k] > 0).map((k) => (
+              <span key={k} style={{ flexGrow: split[k], background: SPLIT_META[k].color }} />
             )) : <span style={{ flexGrow: 1, background: "var(--line-soft)" }} />}
           </div>
           <div className="st-seg-legend">
-            {(Object.keys(STATUS_META) as TaskStatus[]).map((k) => (
-              <span key={k}><i style={{ background: STATUS_META[k].color }} />{STATUS_META[k].label} <b className="ui-num">{fmtNum(byStatus[k], 0)}</b></span>
+            {(Object.keys(SPLIT_META) as SplitKey[]).map((k) => (
+              <span key={k}><i style={{ background: SPLIT_META[k].color }} />{SPLIT_META[k].label} <b className="ui-num">{fmtNum(split[k], 0)} h</b></span>
             ))}
           </div>
         </div>
@@ -587,8 +592,12 @@ export default function StatsPage({ tasks, members }: Props) {
           <Signal
             tone={overdue.length ? "warn" : "ok"}
             icon={overdue.length ? "history" : "check"}
-            title={overdue.length ? `${overdue.length} ${overdue.length === 1 ? "task scaduto non completato" : "task scaduti non completati"} · ${fmtNum(overdue.reduce((s, t) => s + (Number(t.hours) || 0), 0), 0)} h` : "Nessun task scaduto"}
-            detail={overdue.slice(0, 3).map((t) => `${t.description} (${memberName(t.assigneeId)}, ${fmtDay(t.endDate!)})`).join(" · ")}
+            title={overdue.length
+              ? `${overdue.length} ${overdue.length === 1 ? "task finito di recente è ancora aperto" : "task finiti di recente sono ancora aperti"}`
+              : "Nessun task scaduto negli ultimi 30 giorni"}
+            detail={overdue.length
+              ? `${overdue.slice(0, 3).map((t) => `${t.description} (${memberName(t.assigneeId)}, ${fmtDay(t.endDate!)})`).join(" · ")}. Segnali come completati o ripianificali.`
+              : undefined}
           />
           <Signal
             tone={unscheduled.length ? "warn" : "ok"}

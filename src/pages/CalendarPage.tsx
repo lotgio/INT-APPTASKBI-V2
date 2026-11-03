@@ -866,11 +866,11 @@ function JobBox({ commessa, job, state }: { commessa: string; job: JobPlanning |
       <div className="ui-grid2" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
         <Field label="Venduto" value={`${fmtNum(job.sold)} h`} />
         <Field label="Loggato" value={`${fmtNum(job.logged)} h`} />
-        <Field label="Nei task aperti" value={`${fmtNum(job.plannedOpen)} h`} />
+        <Field label="Pianificato da oggi" value={`${fmtNum(job.plannedOpen)} h`} />
       </div>
       {job.over && (
         <span style={{ fontSize: 12.5, color: "var(--danger-ink)" }}>
-          Le ore loggate più quelle dei task ancora aperti superano il venduto: rivedi le stime o concorda un'estensione.
+          Le ore loggate più quelle pianificate da oggi superano il venduto: rivedi le stime o concorda un'estensione.
         </span>
       )}
     </div>
